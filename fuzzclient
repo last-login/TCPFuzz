@@ -1,0 +1,223 @@
+#! /usr/bin/env python
+
+import logging
+logging.getLogger("scapy").setLevel(1)
+
+from scapy.all import *
+from socket import *
+
+import getopt, signal, sys
+import select
+import re
+import errno
+import Queue
+import subprocess
+import time
+
+BUFSIZE = 4096
+INTERVAL = 1
+
+def signal_handler(signal, frame):
+    print 'You pressed Ctrl+C!'
+    sys.exit(0)
+
+def status (ip,port):
+  p = subprocess.check_output(['netstat', '-an', '-p', 'tcp'])
+  status = re.findall("tcp\s+\d+\s+\d+\s+.+\s+" + ip +\
+    "." + str(port) + "\s+(\w+)\n", p)[0]
+  return status
+
+def queue_msg (queue, msg):
+  try:
+    queue.append(msg)
+  except:
+    print "Could not queue message. Socket not connected?"
+
+def send_msg (conn, msg):
+  try:
+    conn.send(msg)
+  except:
+    print "Could not send message"
+
+def usage():
+  print "\
+  Client for TCP Fuzzer.\n\
+  Usage: fuzzclient -p port [-h]\n\
+  Options:\n\
+  -h help\n\
+  -p port"
+
+def main():
+  print "This is the fuzzing Client"
+  signal.signal(signal.SIGINT, signal_handler)
+  verbs = ['accept', 'connect', 'close', 'bind', 'sendto',\
+    'listen', 'recv', 'send', 'setsockopt', 'status', 'reset']
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "hp:d",["help", "port"])
+  except getopt.GetoptError:
+    usage()
+    sys.exit(2)
+  for opt, arg in opts:
+    if opt in ("-h", "--help"):
+      usage()
+      sys.exit()
+    elif opt in ("-p", "--port"):
+      control_port = int(arg)
+    else:
+      assert False, "unhandled option"
+  try: 
+    control_port
+  except NameError:
+    print "You must specify address and port of the fuzzer"
+  sock = socket(AF_INET, SOCK_STREAM)
+  sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+  sock.setblocking(0)
+  sock_control = socket(AF_INET, SOCK_STREAM)
+  sock_control.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+  sock_control.bind(('',control_port))
+  sock_control.listen(1)
+  inputs = [sock_control]
+  outputs = []
+  message_queues = {} 
+  fuzzer_addr = []
+  control_addr = []
+  conn = socket()
+  while True:
+    readable, writable, exceptions = select.select(inputs, outputs, inputs)
+    for s in readable:
+      if s is sock_control:
+        conn_control, control_addr = s.accept()
+        inputs.append(conn_control)
+        outputs.append(conn_control)
+        message_queues[conn_control] = list()
+        print "Control connected from {0}".format(control_addr)
+      else:
+        try:
+          if s != conn:
+            msg = s.recv(BUFSIZE)
+          else:
+            continue
+        except:
+          continue
+        port = s.getsockname()[1]
+        if not msg:
+          outputs.remove(s)
+          inputs.remove(s)
+          s.close()
+          while True:
+            try:
+              s.recv(BUFSIZE)
+            except:
+              break
+          del message_queues[s]
+          if port == control_port:
+            del(sock)
+            sock = socket(AF_INET, SOCK_STREAM)
+            sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            sock.setblocking(0)
+            print "Control disconnected"
+        else:
+          if port == control_port:
+            print msg
+            command = re.findall("(\S+)", msg)
+            verb = command[0]
+            if len(command) > 1:
+              arg = command[1]
+            if verb in verbs:
+              if verb == 'status':
+                try:
+                  stat = status(fuzzer_addr[0], fuzzer_addr[1])
+                  send_msg(conn_control, stat)
+                except:
+                  send_msg(conn_control, "No info. That means: CLOSED\n")
+              elif verb == 'accept':
+                try:
+                  sock, fuzzer_addr = sock.accept()
+                  send_msg(conn_control, "accept OK\n")
+                  print "Fuzzer connected from {0}".format(fuzzer_addr)
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'close':
+                try:
+                  sock.close()
+                  del(sock)
+                  sock = socket(AF_INET, SOCK_STREAM)
+                  sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+                  sock.setblocking(0)
+                  print "Disconnected fuzzer"
+                  send_msg(conn_control, "close OK\n")
+                except (IOError, error):
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'listen':
+                try:
+                  sock.listen(1)
+                  send_msg(conn_control, "listen OK\n")
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'recv':
+                try:
+                  msg = sock.recv(BUFSIZE)
+                  send_msg(conn_control, "recv OK\n")
+                  print msg
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'connect':
+                try:
+                  print control_addr[0]
+                  sock.connect((control_addr[0], int(arg)))
+                  send_msg(conn_control, "connect OK\n")
+                  print "Connected to fuzzer"
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'bind':
+                try:
+                  sock.bind(('', int(arg)))
+                  send_msg(conn_control, "bind OK\n")
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'sendto':
+                try:
+                  sock.sendto('', (control_addr[0], int(arg)))
+                  send_msg(conn_control, "sendto OK\n")
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'send':
+                try:
+                  sock.send(arg)
+                  send_msg(conn_control, "send OK\n")
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")
+              elif verb == 'reset':
+                try:
+                  del(sock)
+                  sock = socket(AF_INET, SOCK_STREAM)
+                  sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+                  sock.setblocking(0)
+                  send_msg(conn_control, "reset OK\n")
+                except (IOError, error), e:
+                  send_msg(conn_control, str(e) + "\n")             
+            else:
+                  send_msg(conn_control, "Command not found\n")
+
+    for s in writable:
+      try:
+        next_msg = message_queues[s].pop()
+      except:
+        pass 
+      else:
+        s.send(next_msg)
+    for s in exceptions:
+      print "Closing socket ", s.getpeername()
+      inputs.remove(s)
+      try:
+        outputs.remove(s)
+      except:
+        pass
+      s.close()            
+  conn_control.shutdown(SHUT_RDWR)
+  sock_control.shutdown(SHUT_RDWR)
+  conn_control.close()
+  sock_control.close()
+
+if __name__=="__main__":
+  main()

@@ -1,0 +1,30 @@
+.Dd $Mdocdate$
+.Dt FUZZCLIENT 1
+.Sh NAME
+.Nm fuzzclient
+.Nd Client for TCP fuzzing tests
+.Sh SYNOPSIS
+.Nm
+.Op Fl h
+.Op Fl p Ar port
+.Sh DESCRIPTION
+The
+.Nm
+is the counterpart to runtcptest and serves as a client for TCP fuzzing tests.
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl h -help
+Print help.
+.It Fl p -port Ar listen_port
+Listen on this port for inbound control connections.
+.El
+.Sh EXAMPLES
+.Dl fuzzclient -p 1234
+starts the fuzzclient and listens on port 1234.
+.Sh SEE ALSO
+.Xr tcpfuzzer 1
+,
+.Xr runtcptest 1
+.Sh AUTHORS
+.An Maximilian Pascher
+.Mt maximilian_pascher@genua.de

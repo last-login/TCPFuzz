@@ -1,0 +1,14 @@
+- {answer: bind OK, syscall: bind}
+- {answer: listen OK, syscall: listen}
+- {answer: accept waiting..., syscall: accept}
+- {answer: {flags: SA}, packet: {flags: S}}
+- {answer: , packet: {flags: A}}
+- {answer: accept OK, control_receive: }
+- {answer: send OK, syscall: send}
+- {answer: {flags: PA}, receive: }
+- {answer: {flags: A}, packet: {flags: PA, data: FOOOOOOOOOOOOOOOOO}}
+- {answer: {flags: A}, packet: {flags: FA}}
+- {answer: close OK, syscall: close}
+- {answer: {flags: FA} , receive: }
+- {answer: , packet: {flags: A}}
+- {answer: reset OK, command: reset}

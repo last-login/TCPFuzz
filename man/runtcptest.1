@@ -1,0 +1,49 @@
+.Dd $Mdocdate$
+.Dt RUNTCPTEST 1
+.Sh NAME
+.Nm runtcptest
+.Nd Application for running TCP tests created with tcpfuzzer.
+.Sh SYNOPSIS
+.Nm
+.Op Fl h
+.Op Fl r
+.Op Fl v
+.Op Fl f Ar config_file
+.Op Fl p Ar pcap_filename
+.Op Fl P Ar start_port
+.Op Fl t Ar test_file
+.Op Fl l Ar pass_list
+.Sh DESCRIPTION
+The
+.Nm
+utility executes TCP tests created with tcpfuzzer against a target. 
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl h -help
+Print help
+.It Fl r -reset
+Reset the client socket after the test.
+.It Fl v -verbose
+Print verbose information. Also on passed tests.
+.It Fl f -file Ar config_file
+Config file for the test.
+.It Fl p -pcap Ar pcap_file
+Write pcap file for all tests.
+.It Fl P -port Ar start_port
+Begin test at port start_port. The port is iterated upwards from this port.
+.It Fl t -test Ar test_file
+Read test from file test_file
+.It Fl l -list Ar pass_list
+Read exempted test from list_file
+.El
+.Sh EXAMPLES
+.Dl runtcptest -p pcap.pcap -t test_auto.yaml -P 3800
+runs the test from test_auto.yaml beginning at port 3800.
+A pcap file is written to pcap.pcap.
+.Sh SEE ALSO
+.Xr tcpfuzzer 1
+,
+.Xr fuzzclient 1
+.Sh AUTHORS
+.An Maximilian Pascher
+.Mt maximilian_pascher@genua.de

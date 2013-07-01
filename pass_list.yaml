@@ -1,0 +1,190 @@
+-
+  path: [0, 0, 2, 0, 0, 0]
+  index: -1
+  string: 'No answer received.'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 2] 
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 2] 
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 0, 1] 
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 1] 
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 0, 0, 4, 2, 0, 0, 0] 
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [0, 0, 4, 1, 0, 0, 1]
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [0, 1] 
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [0, 1] 
+  index: -2
+  string: 'Flags in answer did not match expected flags'
+  comment: 'check routine should be improved'
+-
+  path: [0, 1] 
+  index: -1
+  string: 'Expected: Resource temporarily unavailable'
+  comment: '"Invalid Argument" is also ok.'
+-
+  path: [1, 0, 0, 2, 0, 0, 0] 
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 1, 1] 
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 3, 2, 1]
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 3, 1, 1]
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [0, 0, 2, 0, 0, 1]
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 0, 0, 3, 0, 0, 0]
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 1, 0, 0, 4, 5]
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [2]
+  index: -1
+  string: 'R \/ Padding'
+  comment: '"R" is probably OK.'
+-
+  path: [0, 0, 1, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [2]
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [0, 0, 3, 1, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 1, 0, 0, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 4, 4, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [0, 0, 3, 3, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 1, 0, 0, 1, 1]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 5]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 3, 2, 0, 0, 0]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [0, 0, 3, 3, 3, 8]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 3, 4, 5]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [0, 0, 4, 1, 0, 1]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 1, 0, 1]
+  index: -1
+  string: 'A \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [0, 0, 0, 0, 1]
+  index: -1
+  string: 'No answer received'
+  comment: '"no answer" seems to be correct.'
+-
+  path: [1, 1, 1]
+  index: -1
+  string: 'R \/ Padding'
+  comment: '"R" is probably OK.'
+-
+  path: [0, 0, 2, 1]
+  index: -1
+  string: 'R \/ Padding'
+  comment: '"R" is probably OK.'
+-
+  path: [0, 0, 3, 5]
+  index: -1
+  string: 'FA \/ Padding'
+  comment: 'check routine should be improved'
+-
+  path: [1, 0, 0, 3, 5]
+  index: -2
+  string: 'But received one anyway'
+  comment: 'check routine should be improved'
+-
+  path: [1, 1, 0, 1]
+  index: -1
+  string: 'Expected: Resource temporarily unavailable'
+  comment: '"Invalid Argument" is also ok.'
+-
+  path: [1, 1, 0, 0, 0, 1]
+  index: -1
+  string: 'R'
+  comment: '"R" is probably OK.'

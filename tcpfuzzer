@@ -1,0 +1,436 @@
+#! /usr/bin/env python
+
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
+from scapy.all import *
+from fysom import Fysom
+from socket import *
+
+import yaml
+import getopt, signal,sys
+import re
+import random
+
+class test_desc:
+  def __init__(self, test_number, path_ref, timing):
+    self.test_number = test_number+1
+    self.path_ref = list(path_ref)
+    self.path = []
+    self.states = []
+    self.timing = timing
+  def append_path(self, num):
+    self.path.append(num)
+  def append_state(self, state):
+    self.states.append(state)
+  def get_num(self):
+    return self.test_number
+  def get_path(self):
+    return self.path
+  def next_step(self):
+    if self.path_ref:
+      return self.path_ref.pop()
+    else:
+      return -1
+  def return_desc(self):
+    return {'test_number': self.test_number, 'path': self.path, 'states': self.states}
+
+# If Ctrl+C is pressed, the program exits gracefully
+def signal_handler(signal, frame):
+    print 'You pressed Ctrl+C!'
+    sys.exit(0)
+
+def flags(flags):
+  flags_trans = {
+    0b000000001: 'F',
+    0b000000010: 'S',
+    0b000000100: 'R',
+    0b000001000: 'P',
+    0b000010000: 'A',
+    0b000100000: 'U',
+    0b001000000: 'E',
+    0b010000000: 'C',
+    0b100000000: 'N'
+  }
+  flags_str = str()
+  if isinstance(flags, str):
+    flags_str = flags
+  elif isinstance(flags, int):
+    for i in flags_trans.keys():
+      if bool(i & flags):
+        flags_str += flags_trans[i]
+  return flags_str
+
+def set_field():
+  return bool(random.getrandbits(1))
+
+def find_answer(packet, profile, state):
+  try:
+    if 'flags' in packet:
+      answers = profile[state]['packets']
+      for p in answers:
+        if re.search(p[0], packet['flags']):
+          if not p[1]:
+            return None
+          return {'flags': p[1]}
+      return 'R'
+    else:
+      answers = profile[state]['commands']
+      return answers[packet]
+  except TypeError:
+    print "You probably forgot to provide a profile file..."
+    sys.exit(0)
+
+def add_fuzz(possible_ops, profile, fsm, fsm_t, descr):
+  rand_packet = fuzz(TCP()/Raw())
+  if descr.timing:
+    pass
+  else:
+    if set_field():
+      flags_rand = flags(int(rand_packet[TCP].flags))
+      packet = {'flags': flags_rand, 'window': str(rand_packet[TCP].window)}
+      if re.search('U', flags_rand) or set_field():
+        packet['urgptr'] = str(rand_packet[TCP].urgptr)
+      if re.search('P', flags_rand) or set_field():
+        packet['data'] = str(rand_packet[Raw])
+      if set_field():
+        if set_field():
+          packet['sport'] = str(rand_packet[TCP].sport)
+        if set_field():
+          packet['reserved'] = str(rand_packet[TCP].reserved)
+        if set_field():
+          packet['chksum'] = str(RandShort())
+      answer = find_answer(packet, profile, fsm_t.current)
+      possible_ops.append([{'event': 'reset', 'answer': answer, 'packet': packet}])
+    else:
+      syscalls = ['accept','close', 'listen', 'recv', 'connect', 'bind', 'send', 'connect']
+      syscall = syscalls[random.randint(0, len(syscalls)-1)]
+      data = None
+      if syscall == ('send' or 'sendto'):
+        data = str(rand_packet[Raw])
+      answer = find_answer(syscall, profile, fsm_t.current)
+      possible_ops.append([{'event': 'reset', 'answer': answer, 'syscall': syscall, 'data': data}]) 
+  return possible_ops
+
+def next_operations(testcase, descr, profile, possible_ops, fsm, fsm_t):
+  num = descr.next_step()
+  state = fsm_t.current
+  if num < 0:
+    possible_ops = add_fuzz(possible_ops, profile, fsm, fsm_t, descr)
+    num = random.randint(0, len(possible_ops)-1)
+  # print "Chose index: ", num
+  descr.append_path(num)
+  try:
+    operation = possible_ops[num]
+  except IndexError:
+    num = random.randint(0, len(possible_ops)-1)
+    print "Given index was out of range. Chose random index: ", num
+    operation = possible_ops[num]
+  events = {
+    'ActiveOpen': fsm.ActiveOpen,
+    'Close': fsm.Close,
+    'PassiveOpen': fsm.PassiveOpen,
+    'RcvAckOfFin': fsm.RcvAckOfFin,
+    'RcvAckOfSyn': fsm.RcvAckOfSyn,
+    'RcvFin': fsm.RcvFin,
+    'RcvSyn': fsm.RcvSyn,
+    'RcvSynAck': fsm.RcvSynAck,
+    'Send': fsm.Send,
+    'Timeout': fsm.Timeout,
+    'reset': fsm.reset
+  }
+  events_t = {
+    'ActiveOpen': fsm_t.ActiveOpen,
+    'Close': fsm_t.Close,
+    'PassiveOpen': fsm_t.PassiveOpen,
+    'RcvAckOfFin': fsm_t.RcvAckOfFin,
+    'RcvAckOfSyn': fsm_t.RcvAckOfSyn,
+    'RcvFin': fsm_t.RcvFin,
+    'RcvSyn': fsm_t.RcvSyn,
+    'RcvSynAck': fsm_t.RcvSynAck,
+    'Send': fsm_t.Send,
+    'Timeout': fsm_t.Timeout,
+    'reset': fsm_t.reset
+  }
+  for o in operation:
+    if descr.timing:
+      if profile[state]['timers'] and ('packet' in o or\
+       ('syscall' in o and o['syscall'] == 'send')) and set_field():
+        timer = random.choice(profile[state]['timers'].keys())
+        o['timer'] = profile[state]['timers'][timer]
+        o['timer_op'] = timer
+        o['state'] = state        
+    if 'event_t' in o:
+      events_t[o['event_t']]()
+    if 'event' in o:
+      event = o['event']
+      testcase.append(o)
+      events[event](testcase = testcase, descr = descr, profile = profile,\
+        operation = o, fsm_t = fsm_t)
+    else:
+      testcase.append(o)
+  return
+
+######################################
+##          Event-Handlers          ##
+######################################
+def onsyn_sent(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'syn_sent':
+    possible_ops = [
+      [{'event': 'RcvSyn', 'event_t': 'RcvSyn', 'answer': None, 'packet': {'flags':'A'}}]
+    ]
+  else:
+    possible_ops = [
+      [{'event_t': 'RcvAckOfSyn', 'answer': None, 'packet': {'flags': 'A'}},
+        {'answer': 'accept OK', 'syscall': 'accept'},
+        {'event': 'RcvSynAck'}]
+    ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onestab(e):
+  rand_packet = fuzz(TCP()/Raw())
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  possible_ops = [
+    [{'event_t': 'Close', 'answer': 'close OK', 'syscall': 'close'},
+      {'event': 'RcvFin', 'answer': {'flags': 'FA'}, 'receive': None}],
+    [{'event_t': 'RcvFin', 'event': 'Close', 'answer': {'flags': 'A'}, 'packet': {'flags': 'FA'}}],
+    [{'event_t': 'Close', 'answer': 'close OK', 'syscall': 'close'},
+      {'answer': {'flags': 'FA'}, 'receive': None},
+      {'event': 'Close', 'answer': {'flags': 'A'}, 'packet': {'flags': 'FA'}}],
+      # {'event': 'Close', 'answer': None, 'packet': {'flags': 'FA'}}],
+    [{'answer': 'send OK', 'syscall': 'send', 'data': str(rand_packet[Raw])},
+      {'answer': {'flags': 'PA'}, 'receive': None },
+      {'answer': None, 'packet': {'flags': 'A'}}],
+    [{'answer': {'flags': 'A'}, 'packet': {'flags': 'PA', 'data': str(rand_packet[Raw])}}]
+  ]
+  while e.fsm.current == 'estab':
+    next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onfin_wait_1(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'fin_wait_1':
+    possible_ops = [
+      [{'event_t': 'RcvFin', 'event': 'RcvFin'}],
+    ]
+  else:
+    possible_ops = [
+      [{'event_t': 'Close', 'event': 'RcvAckOfFin', 'answer': 'close OK', 'syscall': 'close'}],
+    ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onfin_wait_2(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'time_wait':
+    possible_ops = [
+      [{'event_t': 'Timeout', 'event': 'RcvFin', 'answer': None, 'packet': {'flags':'A'}}],
+    ]
+  else:    
+    possible_ops = [
+      [{'answer': {'flags': 'FA'}, 'receive': None},
+        {'event_t': 'RcvAckOfFin', 'event': 'RcvFin', 'answer': None, 'packet': {'flags': 'A'}}],
+    ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onclosing(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current  
+  e.descr.append_state(e.fsm_t.current)
+  possible_ops = [
+    [{'event': 'RcvAckOfFin'}]
+  ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def ontime_wait(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'time_wait':
+     possible_ops = [
+      [{'event': 'Timeout', 'event_t': 'Timeout', 'answer': 'reset OK', 'command': 'reset'}]
+    ] 
+  elif e.fsm_t.current == 'closing':
+    possible_ops = [
+      [{'event': 'Timeout', 'event_t': 'RcvAckOfFin', 'answer': 'reset OK', 'command': 'reset'}]
+    ]
+  else:
+    possible_ops = [
+      [{'event': 'Timeout', 'answer': 'reset OK', 'command': 'reset'}]
+    ] 
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onlisten(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'syn_sent':
+    possible_ops = [
+      [{'event': 'RcvSyn'}],
+      [{'event': 'Send', 'answer': {'flags': 'SA'}, 'packet': {'flags': 'S'}}]
+    ]
+  else:
+    possible_ops = [
+      [{'event': 'Send', 'answer': {'flags': 'SA'}, 'packet': {'flags': 'S'}}]
+    ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onsyn_rcvd(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current  
+  e.descr.append_state(e.fsm_t.current)
+  if e.fsm_t.current == 'syn_rcvd':
+    possible_ops = [
+      [{'event_t': 'RcvAckOfSyn', 'event': 'RcvAckOfSyn'}],
+    ]
+  else:
+    possible_ops = [
+      [{'answer': {'flags': 'A'}, 'packet': {'flags': 'SA'}},
+        {'event_t': 'RcvSynAck', 'event': 'RcvAckOfSyn'}]
+    ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onclose_wait(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  possible_ops = [
+    [{'event_t': 'RcvFin', 'event': 'Close', 'answer': {'flags': 'A'}, 'packet': {'flags': 'FA'}}]
+  ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def onlast_ack(e):
+  # print "Current state: Local: " + e.fsm.current + " | Target: " + e.fsm_t.current
+  e.descr.append_state(e.fsm_t.current)
+  possible_ops = [
+    [{'answer': 'reset OK', 'command': 'reset'},
+     {'event_t': 'RcvAckOfFin', 'event': 'RcvAckOfFin'}]
+  ]
+  next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
+
+def usage():
+  print"\
+  usage: tcpfuzzer [-h] [-f test_file] [-p path] [-n number_tests] [-P os_profile]\n\
+  Stateful Fuzzer for TCP.\n\
+  Options:\n\
+    -h help\n\
+    -f filename of test file\n\
+    -p path through state machine\n\
+    -n number of tests to generate\n\
+    -P OS profile file\n"
+
+def main():
+  print("TCP stateful Fuzzer\n")
+  signal.signal(signal.SIGINT, signal_handler)
+  # The definition of the TCP State Machine. Directly adapted from
+  # RFC 793
+  events = [
+      {'name': 'ActiveOpen', 'src': 'closed', 'dst': 'syn_sent'},
+      {'name': 'Close', 'src': 'close_wait', 'dst': 'last_ack'},
+      {'name': 'Close', 'src': 'estab', 'dst': 'fin_wait_1'},
+      {'name': 'Close', 'src': 'listen', 'dst': 'closed'},
+      {'name': 'Close', 'src': 'syn_rcvd', 'dst': 'fin_wait_1'},
+      {'name': 'Close', 'src': 'syn_sent', 'dst': 'closed'},
+      {'name': 'PassiveOpen', 'src': 'closed', 'dst': 'listen'},
+      {'name': 'RcvAckOfFin', 'src': 'closing', 'dst': 'time_wait'},
+      {'name': 'RcvAckOfFin', 'src': 'fin_wait_1', 'dst': 'fin_wait_2'},
+      {'name': 'RcvAckOfFin', 'src': 'last_ack', 'dst': 'closed'},
+      {'name': 'RcvAckOfSyn', 'src': 'syn_rcvd', 'dst': 'estab'},
+      {'name': 'RcvFin', 'src': 'estab', 'dst': 'close_wait'},
+      {'name': 'RcvFin', 'src': 'fin_wait_1', 'dst': 'closing'},
+      {'name': 'RcvFin', 'src': 'fin_wait_2', 'dst': 'time_wait'},
+      {'name': 'RcvSyn', 'src': 'listen', 'dst': 'syn_rcvd'},
+      {'name': 'RcvSyn', 'src': 'syn_sent', 'dst': 'syn_rcvd'},
+      {'name': 'RcvSynAck', 'src': 'syn_sent', 'dst': 'estab'},
+      {'name': 'Send', 'src': 'listen', 'dst': 'syn_sent'},
+      {'name': 'Timeout', 'src': 'time_wait', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'time_wait', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'closing', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'closed', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'listen', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'syn_sent', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'syn_rcvd', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'estab', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'fin_wait_1', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'fin_wait_2', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'close_wait', 'dst': 'closed'},
+      {'name': 'reset', 'src': 'last_ack', 'dst': 'closed'},
+    ]
+  fsm = Fysom({
+    'initial': {'state': 'closed', 'event': 'init'},
+    'events': events,
+    'callbacks': {
+      'onclose_wait': onclose_wait,
+      'onclosing': onclosing,
+      'onestab': onestab,
+      'onfin_wait_1': onfin_wait_1,
+      'onfin_wait_2': onfin_wait_2,
+      'onlast_ack': onlast_ack,
+      'onlisten': onlisten,
+      'onsyn_rcvd': onsyn_rcvd,
+      'onsyn_sent': onsyn_sent,
+      'ontime_wait': ontime_wait
+    }
+  })
+  fsm_target = Fysom({'initial': {'state': 'closed', 'event': 'init'}, 'events': events})
+  n_runs = 1
+  path = []
+  profile = None
+  timing = False
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "hf:dp:dn:dP:nt",["help", "file=", "path=", "number=", "profile=","timing"])
+  except getopt.GetoptError:
+    usage()
+    sys.exit(2)
+  for opt, arg in opts:
+    if opt in ("-h", "--help"):
+      usage()
+      sys.exit()
+    elif opt in ("-f", "--file"):
+      test_file=file(arg, 'w')
+    elif opt in ("-p", "--path"):
+      for d in arg:
+        path.append(int(d))
+      path.reverse()  
+    elif opt in ("-n", "--number"):
+      n_runs = int(arg)
+    elif opt in ("-P", "--profile"):
+      profile_file = file(arg,'r')
+    elif opt in ("-t", "--timing"):
+      timing = True
+    else:
+      assert False, "unhandled option"
+  try: 
+    test_file
+  except NameError:
+    test_file=file('test_auto.yaml','w')
+  testcases = []
+  try:
+    profile = yaml.load(profile_file)
+  except NameError:
+    pass
+  for i in range(n_runs):
+    testcase = []
+    descr = test_desc(i, path, timing)
+    fsm.reset()
+    fsm_target.reset()
+    descr.append_state(fsm_target.current)
+    possible_ops = [
+      [{'answer': 'bind OK', 'syscall': 'bind'},
+        {'answer': 'listen OK', 'syscall': 'listen'},
+        {'event_t': 'PassiveOpen', 'answer': {'flags': 'SA'}, 'packet': {'flags': 'S'}},
+        {'event_t': 'RcvSyn', 'event': 'ActiveOpen'}],
+      [{'answer': 'bind OK', 'syscall': 'bind'},
+        {'answer': 'Operation now in progress', 'syscall': 'connect'},
+        {'answer': {'flags': 'S'}, 'receive': None},
+        {'event_t': 'ActiveOpen', 'event': 'PassiveOpen'},
+        ],
+    ]
+    next_operations(testcase, descr, profile, possible_ops, fsm, fsm_target)
+    descr.append_state(fsm_target.current)
+    testcase.insert(0, descr.return_desc())
+    testcases.append(testcase)
+  yaml.dump(testcases, test_file)
+  print "Testcase written to file"
+  print yaml.dump(testcases)
+  
+if __name__=="__main__":
+  main()

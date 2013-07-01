@@ -1,0 +1,134 @@
+closed:
+  packets: [[R, null], [F, null], [P, R], [S, RA], [A, R], [U, null], [E, null], [C, null], [N, null]]
+  commands: 
+    listen:   listen OK
+    close:    close OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+syn_sent:
+  packets: [[R, null], [F, RA], [A, null], [P, null], [S, SA], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Resource temporarily unavailable'
+    accept:   'Invalid argument'
+    connect:  'Operation already in progress'
+    bind:     'Invalid argument'
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+listen:
+  packets: [[R, null], [F, R], [P, null], [S, SA], [A, R], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+syn_rcvd:
+  packets: [[R, null], [F, R], [S, SA], [P, null], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Resource temporarily unavailable'
+    connect:  'Operation not supported'
+    bind:     'Invalid argument'
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+estab:
+  packets: [[R, null], [F, null], [P, A], [A, null], [S, A], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     ''
+    accept:   'Invalid argument'
+    connect:  'Socket is already connected'
+    bind:     'Invalid argument'
+    sendto:   'Socket is not connected'
+    send:     send OK
+  timers:   {resend: 15}
+  # timers: {timeout: 1900} 
+  # timers: null
+fin_wait_1:
+  packets: [[R, null], [F, null], [S, null], [P, R], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+fin_wait_2:
+  packets: [[R, null], [F, A], [S, A], [P, R], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+closing:
+  packets: [[R, null], [F, null], [S, R], [P, R], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+time_wait:
+  packets: [[R, null], [F, null], [S, null], [P, null], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null
+close_wait:
+  packets: [[R, null], [F, null], [S, null], [P, R], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     ''
+    accept:   'Invalid argument'
+    connect:  'Socket is already connected'
+    bind:     'Invalid argument'
+    sendto:   'sendto OK'
+    send:     'send OK'
+  timers:   null
+last_ack:
+  packets: [[R, null], [F, FA], [S, SA], [P, R], [A, null], [U, null], [E, null], [C, null], [N, null]]
+  commands:
+    close:    close OK 
+    listen:   listen OK
+    recv:     'Socket is not connected'
+    accept:   'Invalid argument'
+    connect:  'Operation now in progress'
+    bind:     bind OK
+    sendto:   'Socket is not connected'
+    send:     'Socket is not connected'
+  timers:   null

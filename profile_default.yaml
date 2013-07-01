@@ -1,0 +1,44 @@
+closed:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+syn_sent:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+listen:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+syn_rcvd:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+estab:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+fin_wait_1:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+fin_wait_2:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+closing:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+time_wait:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+close_wait:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}
+last_ack:
+  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
+  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
+  commands: {}

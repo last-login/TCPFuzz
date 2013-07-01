@@ -1,0 +1,39 @@
+.Dd $Mdocdate$
+.Dt TCPFUZZER 1
+.Sh NAME
+.Nm tcpfuzzer
+.Nd Stateful fuzzer for creating TCP tests
+.Sh SYNOPSIS
+.Nm
+.Op Fl h
+.Op Fl f Ar test_file
+.Op Fl p Ar path
+.Op Fl n Ar number_tests
+.Op Fl P Ar profile_file
+.Sh DESCRIPTION
+The
+.Nm
+utility creates random tests for TCP implementations.
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl h -help
+Print help
+.It Fl f -file Ar test_file
+Where to write the test_file,
+.It Fl p -path Ar path
+Use path to create test. A path is a string of array indices, which tells the
+fuzzer which path to choose through the FSM. Example: 1233114
+.It Fl P -profile Ar profile_file
+Read profile from profile_file
+.El
+.Sh EXAMPLES
+.Dl tcpfuzzer -f test.yaml -P profile_OBSD.yaml -n 10
+Starts the fuzzer. The test is read from the file test.yaml, the profile from
+profile_OBSD.yaml. 10 tests are generated.
+.Sh SEE ALSO
+.Xr fuzzclient 1
+, 
+.Xr runtcptest 1
+.Sh AUTHORS
+.An Maximilian Pascher
+.Mt maximilian_pascher@genua.de

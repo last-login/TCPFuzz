@@ -1,0 +1,540 @@
+#! /usr/bin/env python
+
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
+from scapy.all import *
+from fysom import Fysom
+from socket import *
+
+import pprint
+import string
+import yaml
+import getopt, signal,sys
+import threading
+import time
+import Queue
+import pdb
+import re
+
+conf.verb = 0
+
+QUEUE_TIMEOUT = 4
+CONTROL_TIMEOUT = 10
+BUFSIZE = 4096
+
+class run_thread(threading.Thread):
+  def __init__(self, pq, config, func, ready, *args, **kwargs):
+    self.pq = pq
+    self.func = func
+    self.args = args
+    self.kwargs = kwargs
+    self.config = config
+    self.ready = ready
+    threading.Thread.__init__(self)
+  def run(self):
+    try:
+      self.func(self.pq, self.config, self.ready,\
+        *self.args, **self.kwargs)
+    except:
+      pass
+
+# This function captures all incoming packets. Those, which belong to the
+# current test, are put to a queue, which can be accessed from
+# other threads to read the packets.
+def pcap(queues, config, ready, pcap_q, port):
+  s = L2Socket(iface = config['interface'])
+  ready.set()
+  first_port, last_port = port.get_range()
+  while True:
+    p = s.recv(BUFSIZE)
+    if p is None:
+      continue
+    try:
+      if p[IP].src == config['dst']\
+      and p[IP].dst == config['src']\
+      and p[TCP].sport >= first_port\
+      and p[TCP].sport <= last_port:
+        queues.put(p)
+        pcap_q.put(p)
+      else:
+        continue
+    except:
+      continue
+
+# Class for managing the port range for the current test.
+class port_t(object):
+  def __init__(self, port=False):
+    self.lock = threading.Lock()
+    self.lock.acquire()
+    self.port = port
+    self.lock.release()
+  def set(self, port):
+    self.lock.acquire()
+    self.port = port
+    self.lock.release()
+  def inc(self):
+    self.lock.acquire()
+    self.port += 1
+    self.lock.release()
+  def get(self):
+    self.lock.acquire()
+    port = self.port
+    self.lock.release()
+    return port
+  def set_range(self, start, p_range):
+    self.lock.acquire()
+    self.start = start
+    self.last = start + p_range - 1
+    self.lock.release()
+  def get_range(self):
+    self.lock.acquire()
+    start = self.start
+    last = self.last
+    self.lock.release()
+    return start, last
+
+# Class, which accumulates the logs and manages the output.
+class log(object):
+  def __init__(self):
+    self.log = []
+  def add(self, item):
+    self.log.append("# "+str(item))
+  def output(self):
+    for i in self.log:
+      print i
+  def check(self, index, string):
+    if re.search(string, self.log[index]):
+      return True
+    else:
+      return False
+
+# Packet queues class. A Queue for each port in a given range is maintained.
+class packet_queues(object):
+  def __init__(self, port_first, port_last):
+    self.queues = {}
+    p = port_first
+    while p <= port_last:
+      self.queues[p] = {'packet_q': Queue.Queue(), 'pcap_q': Queue.Queue()}
+      p+=1
+  def put(self, packet):
+    port = packet[TCP].sport
+    self.queues[port]['packet_q'].put(packet)
+    # self.queues[port]['pcap_q'].put(packet)
+  def get_pq(self, port):
+    return self.queues[port]['packet_q'].get(block = True, timeout = QUEUE_TIMEOUT)
+  def full(self,port):
+    return self.queues[port]['packet_q'].full()
+  def empty(self, port):
+    return self.queues[port]['packet_q'].empty()
+
+# If Ctrl+C is pressed, the program exits gracefully
+def signal_handler(signal, frame):
+    print 'You pressed Ctrl+C!'
+    sys.exit(0)
+
+# Sends a message on the control-connection and waits CONTROL_TIMEOUT time
+# for the answer. If no answer can be received, an empty string is returned.
+def control_send(control, cmd):
+  try:
+    msg = str()
+    control.send(cmd)
+    msg = control_recv(control)
+    return msg
+  except:
+    return '' 
+
+def control_recv(control):
+  msg = str()
+  while not re.search('\n', msg):
+    try:
+      msg += control.recv(BUFSIZE)
+    except:
+      msg = "Did not receive anything on control connection" 
+      break
+  return msg
+
+def flagstostr(flags):
+  flags_trans = {
+    0b000000001: 'F',
+    0b000000010: 'S',
+    0b000000100: 'R',
+    0b000001000: 'P',
+    0b000010000: 'A',
+    0b000100000: 'U',
+    0b001000000: 'E',
+    0b010000000: 'C',
+    0b100000000: 'N'
+  }
+  flags_str = str()
+  if isinstance(flags, str):
+    flags_str = flags
+  elif isinstance(flags, int):
+    for i in flags_trans.keys():
+      if bool(i & flags):
+        flags_str += flags_trans[i]
+  return flags_str
+
+def check_resends(recv_packet, sent_packets, recv_packets, testlog):
+  for p in recv_packets:
+    if p == recv_packet:
+      testlog.add("Resent Packet detected")
+      return True
+  if re.search('A', flagstostr(int(recv_packet[TCP].flags))):  
+    for p in sent_packets:
+      if recv_packet[TCP].ack == p[TCP].seq + 1: 
+        testlog.add("Correct ACK detected. Probably resent.")
+        return True
+      if Raw in p and recv_packet[TCP].ack == p[TCP].seq + len(p[Raw]):
+        testlog.add("Correct ACK detected. Probably resent.")
+        return True
+      if Raw in p and (recv_packet[TCP].ack == p[TCP].seq + len(p[Raw]) + 1) and\
+        re.search('[FS]', flagstostr(int(p[TCP].flags))):
+        testlog.add("Correct ACK of a strange Packet (FIN or SYN and data) detected. Probably resent.")
+        return True
+    testlog.add("Packet which was acked was not found (Probably resent ACK)")
+    return False
+  if re.search('R', flagstostr(int(recv_packet[TCP].flags))):
+    testlog.add("Reset detected. This is assumed to be correct.")
+    return True
+  return False
+
+# In this function the answers from the target system are checked.
+def check_answer(pq, sent_packets, recv_packets, operation, testlog, port):
+  run_test = True
+  port_act = port.get()
+  if not operation['answer']:
+    testlog.add('No answer required.')
+  try:
+    if not operation['answer']:
+      recv_packet = pq.get_pq(port_act)
+      testlog.add('... But received one anyway:')
+      testlog.add(recv_packet.summary())
+      run_test = check_resends(recv_packet, sent_packets, recv_packets, testlog)
+      recv_packets.append(recv_packet)
+      return run_test
+    testlog.add("Waiting for packet")
+    testlog.add("Expecting flags " + operation['answer']['flags'])
+    recv_packet = pq.get_pq(port_act)
+    flags = recv_packet[TCP].flags
+    if 'flags' in operation['answer'] and re.search('A', operation['answer']['flags']) and\
+      re.search('A', flagstostr(int(recv_packet[TCP].flags))):
+      ack = False
+      for p in sent_packets:
+        if recv_packet[TCP].ack == p[TCP].seq + 1: 
+          ack = True
+        if Raw in p and recv_packet[TCP].ack == p[TCP].seq + len(p[Raw]):
+          ack = True
+        if Raw in p and (recv_packet[TCP].ack == p[TCP].seq + len(p[Raw]) + 1) and\
+          re.search('[FS]', flagstostr(int(p[TCP].flags))):
+          ack = True
+      if not ack:
+        testlog.add("Packet not correctly acked")
+        run_test = False
+    if 'flags' in operation['answer'] and not (recv_packet[TCP].flags == \
+      TCP(flags = operation['answer']['flags']).flags):
+      testlog.add("Flags in answer did not match expected flags")
+      testlog.add(recv_packet.summary())
+      run_test = check_resends(recv_packet, sent_packets, recv_packets, testlog)
+    if 'print' in operation['answer']:
+      testlog.add(recv_packet.summary())
+    recv_packets.append(recv_packet)
+    return run_test
+  except Queue.Empty:
+    testlog.add("No answer received.")
+    if not operation['answer']:
+      return True
+    else:
+      return False
+
+# The packet generator function. The packets, which are sent to the target system,
+# are constructed here. Information from the testcase and the session context is
+# used to construct correct packets.
+def gen_packet(operation, seq, recv_packets, config, arp, port):
+  pck = operation['packet']
+  if 'flags' in pck:
+    flags = pck['flags']
+  else:
+    flags = 'PA'
+  port = port.get()
+  try:
+    recv_packet = recv_packets[-1]
+  except IndexError:
+    recv_packet = TCP(flags = '')
+  packet = Ether(dst = arp.hwsrc, src = arp.hwdst)/\
+    IP(dst=config['dst'], src=config['src'])/\
+    TCP(dport=port, sport=port, flags=flags)
+  # Sequence number
+  if 'seq' in pck:
+    seq = int(pck['seq'])
+  elif re.match('SA', flags) and recv_packet[TCP].flags != TCP(flags = 'S').flags:
+    seq += 1
+  elif recv_packet[TCP].flags == TCP(flags = 'SA').flags and re.match('A', flags):
+    seq += 1
+  elif recv_packet[TCP].flags == TCP(flags = 'FA').flags and not re.match('FA', flags):
+    seq += 1
+  elif re.search('F|A|P', flags) and seq == 0:
+    seq += 1
+  packet[TCP].seq = seq
+  if 'data' in pck:
+    packet = packet/pck['data']
+    seq += len(packet[Raw])
+  # Acknowledgement number
+  if re.search('A', flags):
+    if 'ack' in pck:
+      ack = int(pck['ack'])
+    elif recv_packet[TCP].flags == TCP(flags = 'SA').flags:
+      ack = recv_packet[TCP].seq + 1
+    elif recv_packet[TCP].flags == TCP(flags = 'S').flags:
+      ack = recv_packet[TCP].seq + 1
+    elif recv_packet[TCP].flags == TCP(flags = 'FA').flags:
+      ack = recv_packet[TCP].seq + 1
+    elif Raw in recv_packet:
+      ack = recv_packet[TCP].seq + len(recv_packet[Raw])
+    else:
+      ack = recv_packet[TCP].seq
+    packet[TCP].ack = ack
+  # Other fields
+  if 'sport' in pck:
+    packet[TCP].sport = int(pck['sport'])
+  if 'urgptr' in pck:
+    packet[TCP].urgptr = int(pck['urgptr'])
+  if 'window' in pck:
+    packet[TCP].window = int(pck['window'])
+  if 'reserved' in pck:
+    packet[TCP].reserved = int(pck['reserved'])
+  if 'chksum' in pck:
+    packet[TCP].chksum = int(pck['chksum'])
+  return packet, seq
+
+# In this function the state of the target after a timeout is checked.
+# If there were packets resent, while the program was waiting, it is registered here.
+def check_timer(port, pq, testlog, operation, control):
+  interval = operation['timer']
+  testlog.add("Waiting " + str(interval) + " seconds")
+  time.sleep(interval)
+  testlog.add("checking resends")
+  port_act = port.get()
+  packet_old = TCP()
+  while not pq.empty(port_act):
+    try:
+      packet_old = packet
+    except:
+      pass
+    packet = pq.get_pq(port_act)
+    testlog.add("received packet while waiting: " + packet.summary())
+    if packet_old[TCP].seq == packet[TCP].seq:
+      testlog.add("Was resent")
+  testlog.add("Asking target for actual state...")
+  answer = control_send(control, "status")
+  testlog.add("Target answered: " + string.strip(answer))
+  try:
+    pq.put(packet)
+  except:
+    pass
+
+def usage():
+  print"\
+  Testcase Interpreter for Fuzzing Tests.\n\
+  Usage: runtcptest [-h] [-r] [-f config_file] [-t test_file] [-v] [-P start_port] [-p pcap_file]\n\
+  Options:\n\
+    -h help\n\
+    -r reset client socket after test\n\
+    -f config file\n\
+    -t testfile\n\
+    -v verbose mode\n\
+    -P start port\n\
+    -p write pcap file\n\
+    -l list of test exempts\n"
+
+def main():
+  pcap_file = False
+  list_file = False
+  reset = False
+  port = port_t()
+  verbose = False
+  try:
+    opts, args = getopt.getopt(sys.argv[1:],\
+     "hvrt:df:dp:dP:dl:d",["help", "reset", "test=", "file=", "pcap=", "port=", "verbose=", "list="])
+  except getopt.GetoptError:
+    usage()
+    sys.exit(2)
+  for opt, arg in opts:
+    if opt in ("-h", "--help"):
+      usage()
+      sys.exit()
+    elif opt in ("-t", "--test"):
+      test_file = file(arg, 'r')
+    elif opt in ("-f", "--file"):
+      config_file = file(arg, 'r')
+    elif opt in ("-p", "--pcap"):
+      pcap_file = arg
+    elif opt in ("-r", "--reset"):
+      reset = True
+    elif opt in ("-P", "--port"):
+      port = port_t(int(arg))
+    elif opt in ("-v", "--verbose"):
+      verbose = True
+    elif opt in ("-l", "--list"):
+      list_file = file(arg, 'r')
+    else:
+      assert False, "unhandled option"
+  try: 
+    test_file
+  except NameError:
+    try:
+      test_file = file('test.yaml','r')
+    except:
+      print "Neither did you specify any test file, nor was the default file test.yaml found."
+      sys.exit(2)
+  try:
+    config_file
+  except NameError:
+    config_file = file('config.yaml','r')
+  pass_list = False
+  if list_file:
+    try:
+      list_file
+    except NameError:
+      print "File " + list_file + " does not exist."
+      sys.exit(2)
+    pass_list = yaml.load(list_file)
+  test = yaml.load(test_file)
+  test.reverse()
+  config = yaml.load(config_file)
+  if not port.get():
+    port.set(config['port'])
+  try:
+    arp= sr1(ARP(pdst = config['dst']))
+    packet = Ether(dst = arp.hwsrc, src = arp.hwdst)/\
+      IP(dst=config['dst'], src=config['src'])/\
+      TCP(dport=port,  flags="S")
+  except KeyError as e:
+    print "Config incorrect: {0}".format(e)
+    sys.exit()
+  p_range = len(test)
+  port.set_range(port.get(), p_range)
+  first_port, last_port = port.get_range()
+  pq = packet_queues(first_port, last_port)
+  pcap_q = Queue.Queue()
+  pcap_ready = threading.Event()
+  pcap_thread = run_thread(pq, config, pcap, pcap_ready, pcap_q, port)
+  pcap_thread.setDaemon(True)
+  pcap_thread.start()
+  # Thread synchronisation is needed. Otherwise it is possible, that
+  # packets are lost.
+  pcap_ready.wait()
+  control = socket(AF_INET, SOCK_STREAM)
+  # On the control connection a timeout is needed. If the connection fails
+  # it should not block the whole program.
+  control.settimeout(CONTROL_TIMEOUT)
+  packet = TCP()
+  recv_packets = []
+  sent_packets = []
+  run_test = True
+  test.reverse()
+  print "1.." + str(p_range)
+  # Test loop. Executed for each testcase.
+  try:
+    control.connect((config['dst'], config['control_port']))
+  except (IOError, error), e:
+    print "Control connection failed: ", e
+    sys.exit(0);
+  for testcase in test:
+    testlog = log()
+    path = testcase[0]['path']
+    testlog.add("Port for this testcase: " + str(port.get()))
+    seq = 0
+    test_number = testcase[0]['test_number']
+    states = str(testcase[0]['states'])
+    testcase.reverse()
+    # Test loop. Executed for each operation in the test or until an error occurs.
+    while testcase and run_test:
+      operation = testcase.pop()
+      if 'syscall' in operation:
+        syscall = operation['syscall']
+        syscall_debug = syscall
+        if re.search('bind|connect|sendto', syscall):
+          syscall += ' ' + str(port.get())
+        elif re.search('send', syscall):
+          if 'data' in operation:
+            syscall += ' ' + operation['data']
+            syscall_debug += ' [data]'
+          else:
+            syscall += ' '
+        testlog.add("Sending Syscall: " + syscall_debug)
+        syscall += '\n'
+        answer = control_send(control, syscall)
+        if 'timer' in operation:
+          check_timer(port, pq, testlog, operation, control)
+        if 'answer' in operation and operation['answer']:
+          if re.search(operation['answer'], answer):
+            testlog.add("Syscall was answered as expected: " + string.strip(answer))
+          else:
+            testlog.add("Syscall failed: " + string.strip(answer))
+            testlog.add("Expected: " + operation['answer'])
+            run_test = False
+        else:
+          testlog.add("Syscall message: " + string.strip(answer))
+      elif 'packet' in operation:
+        packet, seq = gen_packet(operation, seq, recv_packets, config, arp, port)
+        pcap_q.put(packet)
+        testlog.add("Sending packet: " + operation['packet']['flags'])
+        sendp(packet, iface = config['interface'])
+        #if packet[TCP].flags != TCP(flags = 'A').flags:
+        sent_packets.append(packet)
+        if 'timer' in operation:
+          check_timer(port, pq, testlog, operation, control)
+        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port)
+      elif 'command' in operation:
+        command = operation['command']
+        testlog.add("sending command: " + command)
+        answer = control_send(control, command)
+        testlog.add("Target answered: " + string.strip(answer))
+      elif 'receive' in operation:
+        if 'flags' in operation['answer']:
+          testlog.add("Receiving " + operation['answer']['flags'])
+        else:
+          testlog.add("Receiving")
+        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port)
+      elif 'control_receive' in operation:
+        testlog.add("Receiving from control...")
+        msg = control_recv(control)
+        if not re.search(operation['answer'], msg):
+          testlog.add("Syscall/Command failed: " + operation['answer'])
+        else:
+          testlog.add("Syscall/Command succeded: " + operation['answer'])
+    if run_test:
+      print "ok " + str(test_number) + " - States: " + states
+      if verbose:
+        testlog.output() 
+    else:
+      marked_ok = ''
+      if pass_list:
+        for e in pass_list:
+          if path == e['path'] and testlog.check(e['index'], e['string']):
+            try:
+              marked_ok = ' # TODO ' + e['comment']
+            except KeyError:
+              marked_ok = ' # TODO --Failed but marked OK--'
+      print "not ok " + str(test_number) + marked_ok + " - States: " + states
+      print "# Path: " + str(path)
+      testlog.output()
+    port.inc()
+    run_test = True
+    if reset:
+      control_send(control, 'reset\n')
+  control.close()
+  control = socket(AF_INET, SOCK_STREAM)
+  control.settimeout(CONTROL_TIMEOUT)
+  if pcap_file:
+    pcap_packets = []
+    while not pcap_q.empty():
+      pcap_packets.append(pcap_q.get())
+    try:
+      wrpcap(pcap_file, pcap_packets)
+    except:
+      print "Something went wrong while trying to write the pcap file."
+
+if __name__=="__main__":
+  main()

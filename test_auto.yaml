@@ -1,0 +1,21 @@
+- - path: [1, 0, 0, 0, 0, 0]
+    states: [closed, syn_sent, syn_sent, estab, fin_wait_1, closing, time_wait]
+    test_number: 0
+  - {answer: bind OK, syscall: bind}
+  - {answer: '[Errno 36]', event: PassiveOpen, event_t: ActiveOpen_t, syscall: connect}
+  - answer: {flags: S}
+    event: RcvSyn
+    receive: null
+  - answer: {flags: A}
+    packet: {flags: SA}
+  - {event: RcvAckOfSyn, event_t: RcvSynAck_t}
+  - {answer: close OK, event_t: Close_t, syscall: close}
+  - answer: {flags: FA}
+    event: RcvFin
+    receive: null
+  - answer: {flags: A}
+    event: Close
+    event_t: RcvFin_t
+    packet: {flags: FA}
+  - {answer: reset OK, command: reset}
+  - {event: RcvAckOfFin, event_t: RcvAckOfFin_t}
