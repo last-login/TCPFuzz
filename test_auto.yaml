@@ -1,21 +1,28 @@
-- - path: [1, 0, 0, 0, 0, 0]
-    states: [closed, syn_sent, syn_sent, estab, fin_wait_1, closing, time_wait]
-    test_number: 0
+- - path: [1, 2]
+    states: [closed, syn_sent, syn_sent]
+    test_number: 1
   - {answer: bind OK, syscall: bind}
-  - {answer: '[Errno 36]', event: PassiveOpen, event_t: ActiveOpen_t, syscall: connect}
+  - {answer: Operation now in progress, syscall: connect}
   - answer: {flags: S}
-    event: RcvSyn
     receive: null
-  - answer: {flags: A}
-    packet: {flags: SA}
-  - {event: RcvAckOfSyn, event_t: RcvSynAck_t}
-  - {answer: close OK, event_t: Close_t, syscall: close}
-  - answer: {flags: FA}
-    event: RcvFin
-    receive: null
-  - answer: {flags: A}
-    event: Close
-    event_t: RcvFin_t
-    packet: {flags: FA}
-  - {answer: reset OK, command: reset}
-  - {event: RcvAckOfFin, event_t: RcvAckOfFin_t}
+  - {event: PassiveOpen, event_t: ActiveOpen}
+  - answer: null
+    event: reset
+    packet:
+      chksum: '48022'
+      data: !!binary |
+        njQL5QRAvuIU4khtcWQYBDUZcZkaAXduyYYbzgPQtIwYPqzhCvmweUranD2kzfQ0NrplW0AWUTPb
+        Gk20hu9GQL/rUbmUizqrRyf7/kJG5LtRqjxhkJmGE279lNcPDgy38323iQvazRb+qYvTCvV/LGiT
+        8nnGnKImEtf9+8rQNEZABfqYC8V/314wQvQ860LiVo63b19dvLiX+uzdJeu6VemxD5kRGkWy8TDX
+        nAxOATlOKbmJJMTxQ6g0PZQ+JE7Tes07bPD5YSsJNc38NPHBig9v0l5oripLc7Z/HZIIqIi+IqdZ
+        i6XgRPMRcSyx9DZZMIMKCSh5/jsy8rYgUjERShfce6nTugVLyH55H5ZrqGrtaNMjwFHpthGJ+/UN
+        hAWgdUAjit9nEyEx/bFt+5x/MlAXrUrP4zqryDGAZ8L3CzIMxclmJJ/a1mbTvPUJSbYFWdypTfik
+        GbkyXrkOXEOaX7KoRhLTvxMJdJkxhMDSiFKzDTvr7C7h98OYS4Y6Hi5sGo7DqTHzgZfzNG5CSeOu
+        XSs9xtncgJOpXJnNhT931PSOX4aG6GhepwvroWcefmbDtC7QfS7f9qPaHrnpmODsnF6oDFPwtDJr
+        EFSfprWerf9XeupI7WV0/eLQdQiFT1+xvnXkgvG2Qvobq+05iMXgbwkgFgaqSS3K9l8ukabx1Oqz
+        +AOVk7k8r56iKBcPgPxPBjqd2NOipVAQ3Hm+HlYZTX9OFF3YulL1i+J2ovmHyRTJEOSIvsB7bXcE
+        360gHdGUmlbj0OWG4BNl9QzJzwmzKw==
+      flags: UPC
+      reserved: '3'
+      urgptr: '8948'
+      window: '56030'

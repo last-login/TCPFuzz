@@ -200,7 +200,7 @@ def check_resends(recv_packet, sent_packets, recv_packets, testlog):
   return False
 
 # In this function the answers from the target system are checked.
-def check_answer(pq, sent_packets, recv_packets, operation, testlog, port):
+def check_answer(pq, sent_packets, recv_packets, operation, testlog, port, firewalled):
   run_test = True
   port_act = port.get()
   if not operation['answer']:
@@ -243,6 +243,9 @@ def check_answer(pq, sent_packets, recv_packets, operation, testlog, port):
   except Queue.Empty:
     testlog.add("No answer received.")
     if not operation['answer']:
+      return True
+    elif firewalled and operation['event'] == 'reset':
+      testlog.add("OK, if target is behind a firewall.")
       return True
     else:
       return False
@@ -345,7 +348,8 @@ def usage():
     -v verbose mode\n\
     -P start port\n\
     -p write pcap file\n\
-    -l list of test exempts\n"
+    -l list of test exempts\n\
+    -F target is firewalled\n"
 
 def main():
   pcap_file = False
@@ -353,9 +357,10 @@ def main():
   reset = False
   port = port_t()
   verbose = False
+  firewalled = False
   try:
     opts, args = getopt.getopt(sys.argv[1:],\
-     "hvrt:df:dp:dP:dl:d",["help", "reset", "test=", "file=", "pcap=", "port=", "verbose=", "list="])
+            "hvrtF:df:dp:dP:dl:d",["help", "reset", "test=", "file=", "pcap=", "port=", "verbose=", "list=", "firewalled="])
   except getopt.GetoptError:
     usage()
     sys.exit(2)
@@ -377,6 +382,8 @@ def main():
       verbose = True
     elif opt in ("-l", "--list"):
       list_file = file(arg, 'r')
+    elif opt in ("-f", "--firewalled"):
+      firewalled = True
     else:
       assert False, "unhandled option"
   try: 
@@ -485,7 +492,7 @@ def main():
         sent_packets.append(packet)
         if 'timer' in operation:
           check_timer(port, pq, testlog, operation, control)
-        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port)
+        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port, firewalled)
       elif 'command' in operation:
         command = operation['command']
         testlog.add("sending command: " + command)
@@ -496,7 +503,7 @@ def main():
           testlog.add("Receiving " + operation['answer']['flags'])
         else:
           testlog.add("Receiving")
-        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port)
+        run_test=check_answer(pq, sent_packets, recv_packets, operation, testlog, port, firewalled)
       elif 'control_receive' in operation:
         testlog.add("Receiving from control...")
         msg = control_recv(control)

@@ -65,7 +65,7 @@ def main():
       control_port = int(arg)
     else:
       assert False, "unhandled option"
-  try: 
+  try:
     control_port
   except NameError:
     print "You must specify address and port of the fuzzer"
@@ -78,7 +78,7 @@ def main():
   sock_control.listen(1)
   inputs = [sock_control]
   outputs = []
-  message_queues = {} 
+  message_queues = {}
   fuzzer_addr = []
   control_addr = []
   conn = socket()
@@ -195,7 +195,7 @@ def main():
                   sock.setblocking(0)
                   send_msg(conn_control, "reset OK\n")
                 except (IOError, error), e:
-                  send_msg(conn_control, str(e) + "\n")             
+                  send_msg(conn_control, str(e) + "\n")
             else:
                   send_msg(conn_control, "Command not found\n")
 
@@ -203,7 +203,7 @@ def main():
       try:
         next_msg = message_queues[s].pop()
       except:
-        pass 
+        pass
       else:
         s.send(next_msg)
     for s in exceptions:
@@ -213,7 +213,7 @@ def main():
         outputs.remove(s)
       except:
         pass
-      s.close()            
+      s.close()
   conn_control.shutdown(SHUT_RDWR)
   sock_control.shutdown(SHUT_RDWR)
   conn_control.close()
