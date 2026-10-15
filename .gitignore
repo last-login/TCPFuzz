@@ -3,4 +3,5 @@ config_home.yaml
 foo.py
 reset.yaml
 test2.yaml
-update_testmachines.sh
+update_testmachines.sh__pycache__/
+*.pyc

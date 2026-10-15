@@ -252,13 +252,10 @@ __version__ = '1.0'
 __maintainer__ = 'Mansour'
 __email__ = 'mansour@oxplot.com'
 
-import types
-
 try:
-  unicode = unicode
+  basestring = basestring
 except NameError:
-  unicode = str
-  basestring = (str, bytes)
+  basestring = str
 
 class FysomError(Exception):
   pass
@@ -280,7 +277,7 @@ class Fysom(object):
 
   def _apply(self, cfg):
     init = cfg['initial'] if 'initial' in cfg else None
-    if isinstance(init, basestring):
+    if isinstance(init, str):
       init = {'state': init}
     events = cfg['events'] if 'events' in cfg else []
     callbacks = cfg['callbacks'] if 'callbacks' in cfg else {}
@@ -288,7 +285,7 @@ class Fysom(object):
     self._map = tmap
 
     def add(e):
-      src = [e['src']] if isinstance(e['src'], basestring) else e['src']
+      src = [e['src']] if isinstance(e['src'], str) else e['src']
       if e['name'] not in tmap:
         tmap[e['name']] = {}
       for s in src:
