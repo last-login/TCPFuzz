@@ -8,12 +8,11 @@ from fysom import Fysom
 from socket import *
 
 import pprint
-import string
 import yaml
 import getopt, signal,sys
 import threading
 import time
-import Queue
+import queue
 import pdb
 import re
 
@@ -102,7 +101,7 @@ class log(object):
     self.log.append("# "+str(item))
   def output(self):
     for i in self.log:
-      print i
+      print(i)
   def check(self, index, string):
     if re.search(string, self.log[index]):
       return True
@@ -115,7 +114,7 @@ class packet_queues(object):
     self.queues = {}
     p = port_first
     while p <= port_last:
-      self.queues[p] = {'packet_q': Queue.Queue(), 'pcap_q': Queue.Queue()}
+      self.queues[p] = {'packet_q': queue.Queue(), 'pcap_q': queue.Queue()}
       p+=1
   def put(self, packet):
     port = packet[TCP].sport
@@ -130,7 +129,7 @@ class packet_queues(object):
 
 # If Ctrl+C is pressed, the program exits gracefully
 def signal_handler(signal, frame):
-    print 'You pressed Ctrl+C!'
+    print('You pressed Ctrl+C!')
     sys.exit(0)
 
 # Sends a message on the control-connection and waits CONTROL_TIMEOUT time
@@ -170,7 +169,7 @@ def flagstostr(flags):
   if isinstance(flags, str):
     flags_str = flags
   elif isinstance(flags, int):
-    for i in flags_trans.keys():
+    for i in list(flags_trans.keys()):
       if bool(i & flags):
         flags_str += flags_trans[i]
   return flags_str
@@ -240,7 +239,7 @@ def check_answer(pq, sent_packets, recv_packets, operation, testlog, port, firew
       testlog.add(recv_packet.summary())
     recv_packets.append(recv_packet)
     return run_test
-  except Queue.Empty:
+  except queue.Empty:
     testlog.add("No answer received.")
     if not operation['answer']:
       return True
@@ -330,14 +329,14 @@ def check_timer(port, pq, testlog, operation, control):
       testlog.add("Was resent")
   testlog.add("Asking target for actual state...")
   answer = control_send(control, "status")
-  testlog.add("Target answered: " + string.strip(answer))
+  testlog.add("Target answered: " + answer.strip())
   try:
     pq.put(packet)
   except:
     pass
 
 def usage():
-  print"\
+  print("\
   Testcase Interpreter for Fuzzing Tests.\n\
   Usage: runtcptest [-h] [-r] [-f config_file] [-t test_file] [-v] [-P start_port] [-p pcap_file]\n\
   Options:\n\
@@ -349,7 +348,7 @@ def usage():
     -P start port\n\
     -p write pcap file\n\
     -l list of test exempts\n\
-    -F target is firewalled\n"
+    -F target is firewalled\n")
 
 def main():
   pcap_file = False
@@ -360,7 +359,7 @@ def main():
   firewalled = False
   try:
     opts, args = getopt.getopt(sys.argv[1:],\
-            "hvrtF:df:dp:dP:dl:d",["help", "reset", "test=", "file=", "pcap=", "port=", "verbose=", "list=", "firewalled="])
+            "hvrtF:f:t:p:P:l:v",["help", "reset", "test=", "file=", "pcap=", "port=", "verbose=", "list=", "firewalled"])
   except getopt.GetoptError:
     usage()
     sys.exit(2)
@@ -369,9 +368,9 @@ def main():
       usage()
       sys.exit()
     elif opt in ("-t", "--test"):
-      test_file = file(arg, 'r')
+      test_file = open(arg, 'r')
     elif opt in ("-f", "--file"):
-      config_file = file(arg, 'r')
+      config_file = open(arg, 'r')
     elif opt in ("-p", "--pcap"):
       pcap_file = arg
     elif opt in ("-r", "--reset"):
@@ -381,8 +380,8 @@ def main():
     elif opt in ("-v", "--verbose"):
       verbose = True
     elif opt in ("-l", "--list"):
-      list_file = file(arg, 'r')
-    elif opt in ("-f", "--firewalled"):
+      list_file = open(arg, 'r')
+    elif opt in ("-F", "--firewalled"):
       firewalled = True
     else:
       assert False, "unhandled option"
@@ -390,25 +389,25 @@ def main():
     test_file
   except NameError:
     try:
-      test_file = file('test.yaml','r')
+      test_file = open('test.yaml','r')
     except:
-      print "Neither did you specify any test file, nor was the default file test.yaml found."
+      print("Neither did you specify any test file, nor was the default file test.yaml found.")
       sys.exit(2)
   try:
     config_file
   except NameError:
-    config_file = file('config.yaml','r')
+    config_file = open('config.yaml','r')
   pass_list = False
   if list_file:
     try:
       list_file
     except NameError:
-      print "File " + list_file + " does not exist."
+      print("File " + list_file + " does not exist.")
       sys.exit(2)
-    pass_list = yaml.load(list_file)
-  test = yaml.load(test_file)
+    pass_list = yaml.safe_load(list_file)
+  test = yaml.safe_load(test_file)
   test.reverse()
-  config = yaml.load(config_file)
+  config = yaml.safe_load(config_file)
   if not port.get():
     port.set(config['port'])
   try:
@@ -417,13 +416,13 @@ def main():
       IP(dst=config['dst'], src=config['src'])/\
       TCP(dport=port,  flags="S")
   except KeyError as e:
-    print "Config incorrect: {0}".format(e)
+    print("Config incorrect: {0}".format(e))
     sys.exit()
   p_range = len(test)
   port.set_range(port.get(), p_range)
   first_port, last_port = port.get_range()
   pq = packet_queues(first_port, last_port)
-  pcap_q = Queue.Queue()
+  pcap_q = queue.Queue()
   pcap_ready = threading.Event()
   pcap_thread = run_thread(pq, config, pcap, pcap_ready, pcap_q, port)
   pcap_thread.setDaemon(True)
@@ -440,12 +439,12 @@ def main():
   sent_packets = []
   run_test = True
   test.reverse()
-  print "1.." + str(p_range)
+  print("1.." + str(p_range))
   # Test loop. Executed for each testcase.
   try:
     control.connect((config['dst'], config['control_port']))
-  except (IOError, error), e:
-    print "Control connection failed: ", e
+  except OSError as e:
+    print("Control connection failed: ", e)
     sys.exit(0);
   for testcase in test:
     testlog = log()
@@ -476,13 +475,13 @@ def main():
           check_timer(port, pq, testlog, operation, control)
         if 'answer' in operation and operation['answer']:
           if re.search(operation['answer'], answer):
-            testlog.add("Syscall was answered as expected: " + string.strip(answer))
+            testlog.add("Syscall was answered as expected: " + answer.strip())
           else:
-            testlog.add("Syscall failed: " + string.strip(answer))
+            testlog.add("Syscall failed: " + answer.strip())
             testlog.add("Expected: " + operation['answer'])
             run_test = False
         else:
-          testlog.add("Syscall message: " + string.strip(answer))
+          testlog.add("Syscall message: " + answer.strip())
       elif 'packet' in operation:
         packet, seq = gen_packet(operation, seq, recv_packets, config, arp, port)
         pcap_q.put(packet)
@@ -497,7 +496,7 @@ def main():
         command = operation['command']
         testlog.add("sending command: " + command)
         answer = control_send(control, command)
-        testlog.add("Target answered: " + string.strip(answer))
+        testlog.add("Target answered: " + answer.strip())
       elif 'receive' in operation:
         if 'flags' in operation['answer']:
           testlog.add("Receiving " + operation['answer']['flags'])
@@ -512,7 +511,7 @@ def main():
         else:
           testlog.add("Syscall/Command succeded: " + operation['answer'])
     if run_test:
-      print "ok " + str(test_number) + " - States: " + states
+      print("ok " + str(test_number) + " - States: " + states)
       if verbose:
         testlog.output() 
     else:
@@ -524,8 +523,8 @@ def main():
               marked_ok = ' # TODO ' + e['comment']
             except KeyError:
               marked_ok = ' # TODO --Failed but marked OK--'
-      print "not ok " + str(test_number) + marked_ok + " - States: " + states
-      print "# Path: " + str(path)
+      print("not ok " + str(test_number) + marked_ok + " - States: " + states)
+      print("# Path: " + str(path))
       testlog.output()
     port.inc()
     run_test = True
@@ -541,7 +540,7 @@ def main():
     try:
       wrpcap(pcap_file, pcap_packets)
     except:
-      print "Something went wrong while trying to write the pcap file."
+      print("Something went wrong while trying to write the pcap file.")
 
 if __name__=="__main__":
   main()

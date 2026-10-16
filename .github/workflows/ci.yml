@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Syntax check
+        run: python -m py_compile tcpfuzzer runtcptest fysom.py
+      - name: Smoke test generator (OBSD profile)
+        run: ./tcpfuzzer -n 5 -P profile_OBSD.yaml -f /tmp/test_obds.yaml
+      - name: Smoke test generator (default profile)
+        run: ./tcpfuzzer -n 5 -P profile_default.yaml -f /tmp/test_default.yaml
+      - name: Validate generated testcases
+        run: |
+          python - <<'EOF'
+          import yaml
+          for f in ['/tmp/test_obds.yaml', '/tmp/test_default.yaml']:
+              t = yaml.safe_load(open(f))
+              assert isinstance(t, list) and len(t) == 5, f
+              for tc in t:
+                  assert tc[0]['test_number'] and 'path' in tc[0] and 'states' in tc[0]
+              print(f, 'OK:', len(t), 'testcases')
+          EOF

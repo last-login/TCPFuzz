@@ -37,7 +37,7 @@ class test_desc:
 
 # If Ctrl+C is pressed, the program exits gracefully
 def signal_handler(signal, frame):
-    print 'You pressed Ctrl+C!'
+    print('You pressed Ctrl+C!')
     sys.exit(0)
 
 def flags(flags):
@@ -56,7 +56,7 @@ def flags(flags):
   if isinstance(flags, str):
     flags_str = flags
   elif isinstance(flags, int):
-    for i in flags_trans.keys():
+    for i in list(flags_trans.keys()):
       if bool(i & flags):
         flags_str += flags_trans[i]
   return flags_str
@@ -75,10 +75,10 @@ def find_answer(packet, profile, state):
           return {'flags': p[1]}
       return 'R'
     else:
-      answers = profile[state]['commands']
+      answers = profile[state].get('commands') or profile[state].get('syscalls', {})
       return answers[packet]
   except TypeError:
-    print "You probably forgot to provide a profile file..."
+    print("You probably forgot to provide a profile file...")
     sys.exit(0)
 
 def add_fuzz(possible_ops, profile, fsm, fsm_t, descr):
@@ -106,7 +106,7 @@ def add_fuzz(possible_ops, profile, fsm, fsm_t, descr):
       syscalls = ['accept','close', 'listen', 'recv', 'connect', 'bind', 'send', 'connect']
       syscall = syscalls[random.randint(0, len(syscalls)-1)]
       data = None
-      if syscall == ('send' or 'sendto'):
+      if syscall in ('send', 'sendto'):
         data = str(rand_packet[Raw])
       answer = find_answer(syscall, profile, fsm_t.current)
       possible_ops.append([{'event': 'reset', 'answer': answer, 'syscall': syscall, 'data': data}]) 
@@ -124,7 +124,7 @@ def next_operations(testcase, descr, profile, possible_ops, fsm, fsm_t):
     operation = possible_ops[num]
   except IndexError:
     num = random.randint(0, len(possible_ops)-1)
-    print "Given index was out of range. Chose random index: ", num
+    print("Given index was out of range. Chose random index: ", num)
     operation = possible_ops[num]
   events = {
     'ActiveOpen': fsm.ActiveOpen,
@@ -156,7 +156,7 @@ def next_operations(testcase, descr, profile, possible_ops, fsm, fsm_t):
     if descr.timing:
       if profile[state]['timers'] and ('packet' in o or\
        ('syscall' in o and o['syscall'] == 'send')) and set_field():
-        timer = random.choice(profile[state]['timers'].keys())
+        timer = random.choice(list(profile[state]['timers'].keys()))
         o['timer'] = profile[state]['timers'][timer]
         o['timer_op'] = timer
         o['state'] = state        
@@ -307,7 +307,7 @@ def onlast_ack(e):
   next_operations(e.testcase, e.descr, e.profile, possible_ops, e.fsm, e.fsm_t)
 
 def usage():
-  print"\
+  print("\
   usage: tcpfuzzer [-h] [-f test_file] [-p path] [-n number_tests] [-P os_profile]\n\
   Stateful Fuzzer for TCP.\n\
   Options:\n\
@@ -315,7 +315,7 @@ def usage():
     -f filename of test file\n\
     -p path through state machine\n\
     -n number of tests to generate\n\
-    -P OS profile file\n"
+    -P OS profile file\n")
 
 def main():
   print("TCP stateful Fuzzer\n")
@@ -376,7 +376,7 @@ def main():
   profile = None
   timing = False
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hf:dp:dn:dP:nt",["help", "file=", "path=", "number=", "profile=","timing"])
+    opts, args = getopt.getopt(sys.argv[1:], "hf:p:n:P:t",["help", "file=", "path=", "number=", "profile=","timing"])
   except getopt.GetoptError:
     usage()
     sys.exit(2)
@@ -385,7 +385,7 @@ def main():
       usage()
       sys.exit()
     elif opt in ("-f", "--file"):
-      test_file=file(arg, 'w')
+      test_file=open(arg, 'w')
     elif opt in ("-p", "--path"):
       for d in arg:
         path.append(int(d))
@@ -393,7 +393,7 @@ def main():
     elif opt in ("-n", "--number"):
       n_runs = int(arg)
     elif opt in ("-P", "--profile"):
-      profile_file = file(arg,'r')
+      profile_file = open(arg,'r')
     elif opt in ("-t", "--timing"):
       timing = True
     else:
@@ -401,10 +401,10 @@ def main():
   try: 
     test_file
   except NameError:
-    test_file=file('test_auto.yaml','w')
+    test_file=open('test_auto.yaml','w')
   testcases = []
   try:
-    profile = yaml.load(profile_file)
+    profile = yaml.safe_load(profile_file)
   except NameError:
     pass
   for i in range(n_runs):
@@ -429,8 +429,8 @@ def main():
     testcase.insert(0, descr.return_desc())
     testcases.append(testcase)
   yaml.dump(testcases, test_file)
-  print "Testcase written to file"
-  print yaml.dump(testcases)
+  print("Testcase written to file")
+  print(yaml.dump(testcases))
   
 if __name__=="__main__":
   main()

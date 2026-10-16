@@ -1,44 +1,330 @@
-closed:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-syn_sent:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-listen:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-syn_rcvd:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-estab:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-fin_wait_1:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-fin_wait_2:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-closing:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
-time_wait:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
 close_wait:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+closed:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+closing:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+estab:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+fin_wait_1:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+fin_wait_2:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
 last_ack:
-  packets: [{F: }, {S: }, {R: }, {P: }, {A: }, {U: }, {E: }, {C: }, {N: }]
-  syscalls: {close: , listen: , recv: , accept: , connect: , bind: , sendto: , send:}
-  commands: {}
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+listen:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+syn_rcvd:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+syn_sent:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
+time_wait:
+  commands:
+    accept: null
+    bind: null
+    close: null
+    connect: null
+    listen: null
+    recv: null
+    send: null
+    sendto: null
+  packets:
+  - - F
+    - null
+  - - S
+    - null
+  - - R
+    - null
+  - - P
+    - null
+  - - A
+    - null
+  - - U
+    - null
+  - - E
+    - null
+  - - C
+    - null
+  - - N
+    - null
+  timers: null
